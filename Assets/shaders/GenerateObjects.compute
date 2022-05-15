@@ -1,0 +1,45 @@
+#pragma kernel GenerateObjects
+
+#include "object.hlsl"
+
+#define MAXIMUM_OBJECT_COUNT 80
+#define MAXIMUM_VALUE_PER_OBJECT_COUNT 10
+#define OBJV(_v_) _ObjectValues[valueId+_v_]
+#define PALETTE_LENGTH 8
+
+RWStructuredBuffer<Object> _Objects;
+float _ObjectValues[MAXIMUM_OBJECT_COUNT * MAXIMUM_VALUE_PER_OBJECT_COUNT];
+int _Width;
+int _Height;
+float4 _Palette[PALETTE_LENGTH];
+
+[numthreads(1, 1, 1)]
+void GenerateObjects()
+{
+	for (int i = 0; i < MAXIMUM_OBJECT_COUNT; ++i)
+	{
+		int valueId = i * MAXIMUM_VALUE_PER_OBJECT_COUNT;
+
+		Object object;
+		object.type = i==20?0:(int)(OBJV(0) * 3 + 1);
+		object.position = float2(_Width * OBJV(1), _Height * OBJV(2));
+		object.size = max(float2(_Width * OBJV(3), i<8?2:_Height * OBJV(4)) * 0.4, 2);
+		object.color = _Palette[(int)(OBJV(5) * PALETTE_LENGTH)].rgb;
+		object.rotation = OBJV(6);
+		object.unused = 0.0;
+
+		//object.position.y = min(object.position.y + object.size.y, _Height - 20.0) - object.size.y;
+
+		if (i == 20)
+		{
+			object.position.y += 160;
+		}
+
+		if (i < 8)
+		{
+			object.size.x *= 4;
+		}
+
+		_Objects[i] = object;
+	}
+}

@@ -1,0 +1,74 @@
+#pragma max_recursion_depth 1
+
+RWTexture2D<float4> _OutputTex;
+RaytracingAccelerationStructure _AccelerationStructure;
+int _Width;
+int _Height;
+Texture2D _Signature;
+
+struct RayPayload
+{
+	float4 hit;
+};
+
+[shader("miss")]
+void MissShader(inout RayPayload payload : SV_RayPayload)
+{
+    payload.hit = float4(0.8, 0.8, 0.8, 101);
+}
+
+[shader("raygeneration")]
+void Dispatch()
+{
+    uint2 uv = DispatchRaysIndex().xy;
+	
+	RayPayload payload;
+	RayDesc ray;
+	ray.Direction = float3(0.0, 0.0, 1.0);
+	ray.TMin = 0;
+	ray.TMax = 1e20f;
+
+	ray.Origin = float3(uv, 0.0);
+	payload.hit = 0.0;
+	TraceRay(_AccelerationStructure, RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH, 0xFF, 0, 1, 0, ray, payload);
+	float4 shadowColor0 = payload.hit;
+
+	ray.Origin = float3(uv + float2(7, 5), 0.0);
+	payload.hit = 0.0;
+	TraceRay(_AccelerationStructure, RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH, 0xFF, 0, 1, 0, ray, payload);
+	float4 shadowColor1 = payload.hit;
+
+	ray.Origin = float3(uv + float2(2, 3), 0.0);
+	payload.hit = 0.0;
+	TraceRay(_AccelerationStructure, RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH, 0xFF, 0, 1, 0, ray, payload);
+	float4 color = payload.hit;
+
+	if (shadowColor0.a < color.a)
+	{
+		float factor = shadowColor0.a==20?40:12.0;
+		color /= (factor + color.a - shadowColor0.a) / factor;
+	}
+
+	if (shadowColor1.a < color.a)
+	{
+		float factor = shadowColor1.a==20?80:24.0;
+		color /= (factor + color.a - shadowColor1.a) / factor;
+	}
+
+	uv = uint2(uv.x, _Height - uv.y - 1);
+
+	float3 signature = _Signature.Load(uint3(uv, 0)).rgb * 0.8;
+	if (signature.r+signature.g+signature.b>0.0)
+	{
+		if (length(color.rgb)>0.5)
+		{
+			color.rgb -= signature ;
+		}
+		else
+		{
+			color.rgb += signature;	
+		}
+	}
+
+	_OutputTex[uv] = float4(color.rgb, 1.0);
+}
